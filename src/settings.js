@@ -18,11 +18,7 @@ export default function Settings({ navigation }) {
         <Text style={styles.optionText}>Language</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={() => alert("Logged out!")}>
-        <Text style={styles.logoutText}>Log Out</Text>
-      </TouchableOpacity>
+      
     </View>
   );
 }

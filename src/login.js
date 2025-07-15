@@ -4,6 +4,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import {getAuth, signInWithEmailAndPassword} from 'firebase/auth';
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { collection, query, where, getDocs, getFirestore } from "firebase/firestore";
+import LottieView from 'lottie-react-native';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCyRo6yXcGdTAVR6M5CKlwRPFDnbNogrbg",
@@ -24,24 +25,56 @@ export default class Login extends Component {
     this.state = {
       email: "",
       password: "",
-      isHidden: true
+      isHidden: true,
+      loading:false
     }
   }
-  login = () => {
-    let {email, password} = this.state;
-    signInWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      const user = userCredential.user;
-      console.log(user)
-      this.props.navigation.navigate("Tabs")
-    })
-    .catch((error) => {
+  login = async () => {
+  const { email, password } = this.state;
+  this.setState({ loading: true });
 
-      alert("Not LOGGED IN" + error)
-    });
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('uid', '==', uid));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const userData = snapshot.docs[0].data();
+      const role = userData.role || 'customer';
+
+      this.setState({ loading: false });
+      this.props.navigation.reset({
+        index: 0,
+        routes: [{ name: 'Tabs', params: { role } }]
+      });
+    } else {
+      throw new Error("User data not found");
+    }
+
+  } catch (error) {
+    this.setState({ loading: false });
+    alert("Login failed: " + error.message);
   }
+};
+
+ 
+
   render(){
     let {email, password, isHidden} = this.state;
+     if (this.state.loading) {
+  return (
+    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5'}}>
+      <LottieView
+        source={require('../assets/Loading.json')} 
+        autoPlay
+        loop
+        style={{ width: 200, height: 200 }}
+      />
+    </View>
+  );
+}
     return(
         <ScrollView> 
             <View style={{backgroundColor: "#F6F6F6", flex: 1, paddingTop: "17%"}}>
@@ -106,11 +139,6 @@ export default class Login extends Component {
     params: { screen: "Home" }})}
               style={{backgroundColor: "#000", paddingVertical: 14, borderRadius: 10, width: "90%", marginHorizontal: "5%"}}>
               <Text style={{color: "#fff", fontWeight:"bold", textAlign: "center", fontSize: 16}}>Register</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-              onPress={()=>this.props.navigation.navigate("Tabs")}
-              style={{backgroundColor: "#000", paddingVertical: 14, borderRadius: 10, width: "90%", marginHorizontal: "5%"}}>
-              <Text style={{color: "#fff", fontWeight:"bold", textAlign: "center", fontSize: 16}}>home</Text>
           </TouchableOpacity>
         </View>
         </ScrollView>
