@@ -1,41 +1,84 @@
-
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ImageBackground, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ImageBackground, ScrollView, Linking } from 'react-native';
+import * as Location from 'expo-location';
 import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
-
+import { getDocs, collection, query, where } from 'firebase/firestore';
 
 export default class Home extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      userName: 'Customer'
+      userName: 'Customer',
+      locationGranted: null,
+      location: null,
     };
   }
 
   async componentDidMount() {
-    const user = auth.currentUser;
-    if (user) {
-      const docRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(docRef);
-      if (userSnap.exists()) {
-        this.setState({ userName: userSnap.data().name });
-      }
-    }
+    this.fetchUserName();
+    this.askLocationPermission();
   }
 
+  fetchUserName = async () => {
+    try {
+      const uid = auth.currentUser.uid;
+      const q = query(collection(db, 'users'), where('uid', '==', uid));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const data = querySnapshot.docs[0].data();
+        this.setState({ userName: data.name });
+      }
+    } catch (err) {
+      console.log("Failed to load user:", err.message);
+    }
+  };
+
+  askLocationPermission = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        this.setState({ locationGranted: false });
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      this.setState({ locationGranted: true, location });
+    } catch (err) {
+      this.setState({ locationGranted: false });
+      console.warn("Error getting location:", err);
+    }
+  };
+
   render() {
+    const { userName, locationGranted, location } = this.state;
+
+    if (locationGranted === false) {
+      return (
+        <View style={styles.centered}>
+          <Text style={styles.permissionText}>Location permission is required to place an order.</Text>
+          <TouchableOpacity
+            onPress={() => Linking.openSettings()}
+            style={styles.enableBtn}
+          >
+            <Text style={styles.enableText}>Enable Location</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.greeting}>Hello</Text>
-          <Text style={styles.username}>{this.state.userName}</Text>
+          <Text style={styles.username}>{userName}</Text>
           <View style={styles.icons}>
             <TouchableOpacity onPress={() => this.props.navigation.navigate("Notifications")}>
               <Image source={require('../assets/bell.png')} style={styles.icon} />
             </TouchableOpacity>
           </View>
         </View>
+
         <ScrollView showsVerticalScrollIndicator={false}>
           {[
             { label: 'Perfect for small households or individuals', volume: '250L' },
@@ -50,8 +93,14 @@ export default class Home extends Component {
               >
                 <Text style={styles.cardTitle}>{item.label}</Text>
                 <Text style={styles.cardSub}>{item.volume} container</Text>
-                <TouchableOpacity style={styles.orderBtn}
-                  onPress={() => this.props.navigation.navigate("Order", { volume: item.volume })}
+                <TouchableOpacity
+                  style={styles.orderBtn}
+                  onPress={() =>
+                    this.props.navigation.navigate("Order", {
+                      volume: item.volume,
+                      location: location
+                    })
+                  }
                 >
                   <Text style={styles.orderBtnText}>Order Now</Text>
                 </TouchableOpacity>
@@ -70,6 +119,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7fa',
     paddingHorizontal: 16,
     paddingTop: 60,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  enableBtn: {
+    backgroundColor: '#0d65d9',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  enableText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 10,
+    paddingHorizontal: 10,
   },
   header: {
     flexDirection: 'row',
@@ -107,17 +183,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
-  },
-  customOrderButton: {
-    backgroundColor: '#0d65d9',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-    alignItems: 'center'
-  },
-  customOrderText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
   },
 });

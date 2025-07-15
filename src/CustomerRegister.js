@@ -6,7 +6,7 @@ import { collection, addDoc } from 'firebase/firestore';
 
 export default function CustomerRegister({ navigation }) {
   const [form, setForm] = useState({
-    name: '', email: '', address: '', password: '', confirmPassword: ''
+    name: '', email: '', address: '', password: '', confirmPassword: '',phone:''
   });
 
   const handleChange = (field, value) => setForm({ ...form, [field]: value });
@@ -37,8 +37,8 @@ export default function CustomerRegister({ navigation }) {
         <Image source={require("../assets/logo.jpg")} style={styles.logo} resizeMode="contain" />
       <Text style={styles.header}>Register as Customer</Text>
       <TextInput placeholder="Name" style={styles.input} onChangeText={(text) => handleChange('name', text)} />
-      <TextInput placeholder="Email" style={styles.input} onChangeText={(text) => handleChange('email', text)} />
-        <TextInput placeholder="Phone number" style={styles.input} onChangeText={(text) => handleChange('email', text)} />
+      <TextInput placeholder="Email" style={styles.input} keyboardType='email' onChangeText={(text) => handleChange('email', text)} />
+      <TextInput placeholder="Phone number" style={styles.input} keyboardType='phone-pad'maxLength={10} onChangeText={(text) => handleChange('phone', text)} />
       <TextInput placeholder="Address" style={styles.input} onChangeText={(text) => handleChange('address', text)} />
       <TextInput placeholder="Password" secureTextEntry style={styles.input} onChangeText={(text) => handleChange('password', text)} />
       <TextInput placeholder="Confirm Password" secureTextEntry style={styles.input} onChangeText={(text) => handleChange('confirmPassword', text)} />

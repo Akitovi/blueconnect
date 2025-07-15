@@ -1,25 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { query, where, getDocs, collection } from 'firebase/firestore';
+import LottieView from 'lottie-react-native'; 
 
 export default function Account({ navigation }) {
   const [userData, setUserData] = useState(null);
 
   const fetchUserDetails = async () => {
-    try {
-      const uid = auth.currentUser.uid;
-      const docRef = doc(db, 'users', uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setUserData(docSnap.data());
-      } else {
-        alert('User data not found!');
-      }
-    } catch (error) {
-      alert(error.message);
+  try {
+    const uid = auth.currentUser.uid;
+    const q = query(collection(db, 'users'), where('uid', '==', uid));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      setUserData(querySnapshot.docs[0].data());
+    } else {
+      alert('User data not found!');
     }
-  };
+  } catch (error) {
+    alert(error.message);
+  }
+};
 
   const handleLogout = async () => {
     try {
@@ -38,12 +40,18 @@ export default function Account({ navigation }) {
   }, []);
 
   if (!userData) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0d65d9" />
-      </View>
-    );
-  }
+  return (
+    <View style={styles.loadingContainer}>
+      <LottieView
+        source={require('../assets/Loading.json')}
+        autoPlay
+        loop
+        style={{ width: 200, height: 200 }}
+      />
+    </View>
+  );
+}
+
 
   return (
     <View style={styles.container}>

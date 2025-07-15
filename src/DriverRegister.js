@@ -4,33 +4,54 @@ import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, ScrollView 
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
+import LottieView from 'lottie-react-native';
+
 
 export default function DriverRegister({ navigation }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', address: '', vehicleNumber: '', password: '', confirmPassword: ''
   });
+  const [loading, setLoading] = useState(false);
+
 
   const handleChange = (field, value) => setForm({ ...form, [field]: value });
 
-  const handleRegister = async () => {
-    if (form.password !== form.confirmPassword) {
-      alert('Passwords do not match!');
-      return;
-    }
+const handleRegister = async () => {
+  if (form.password !== form.confirmPassword) {
+    alert('Passwords do not match!');
+    return;
+  }
 
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      await addDoc(collection(db, 'users'), {
-        uid: userCredential.user.uid,
-        role: 'driver',
-        ...form,
-        createdAt: new Date()
-      });
-      navigation.navigate('Tabs', { role: 'driver' });
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+  setLoading(true); 
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
+    await addDoc(collection(db, 'users'), {
+      uid: userCredential.user.uid,
+      role: 'driver',
+      ...form,
+      createdAt: new Date()
+    });
+    navigation.navigate('Tabs', { role: 'driver' });
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    setLoading(false); 
+  }
+};
+if (loading) {
+  return (
+    <View style={styles.loadingContainer}>
+      <LottieView
+        source={require('../assets/Loading.json')}  
+        autoPlay
+        loop
+        style={{ width: 200, height: 200 }}
+      />
+    </View>
+  );
+}
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -101,5 +122,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontWeight: 'bold'
-  }
+  },
+  loadingContainer: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: '#fff7f0',
+},
+
 });
