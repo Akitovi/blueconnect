@@ -1,21 +1,23 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Screens
-import Home from "./src/home";
+import Home from './src/home';
 import Settings from './src/settings';
 import Order from './src/Order';
 import Account from './src/Account';
 import Notifications from './src/notifications';
-import History from "./src/History";
+import History from './src/History';
 import CustomOrder from './src/CustomOrder';
-import DriverHome from './src/Driver'; 
+import DriverHome from './src/Driver';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+// Customer Home Stack
 const HomeScreens = () => (
   <Stack.Navigator initialRouteName="Home">
     <Stack.Screen name="Homescreen" component={Home} options={{ headerShown: false }} />
@@ -24,15 +26,21 @@ const HomeScreens = () => (
   </Stack.Navigator>
 );
 
-
+// Driver Home Stack
 const DriverScreens = () => (
   <Stack.Navigator>
     <Stack.Screen name="Driver" component={DriverHome} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
-const SettingScreens = () => (
+const HistoryScreens = () => (
   <Stack.Navigator>
+    <Stack.Screen name="HistoryMain" component={History} options={{ headerShown: false }} />
+  </Stack.Navigator>
+);
+const AccountStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen name="AccountMain" component={Account} options={{ headerShown: false }} />
     <Stack.Screen name="Settings" component={Settings} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
@@ -51,6 +59,7 @@ export default function Tabs({ route }) {
           let iconName;
           if (route.name === 'Home') iconName = focused ? 'water' : 'water-outline';
           else if (route.name === 'Add') iconName = focused ? 'add' : 'add-outline';
+          else if (route.name === 'History') iconName = focused ? 'time' : 'time-outline';
           else if (route.name === 'Account') iconName = focused ? 'person' : 'person-outline';
 
           return (
@@ -62,8 +71,14 @@ export default function Tabs({ route }) {
       })}
     >
       <Tab.Screen name="Home" component={role === 'driver' ? DriverScreens : HomeScreens} />
-      {role !== 'driver' && <Tab.Screen name="Add" component={CustomOrder} />}
-      <Tab.Screen name="Account" component={Account} />
+      {role !== 'driver' && (
+        <>
+          <Tab.Screen name="Add" component={CustomOrder} />
+          <Tab.Screen name="History" component={HistoryScreens} />
+        </>
+      )}
+      <Tab.Screen name="Account" component={AccountStack} />
+
     </Tab.Navigator>
   );
 }

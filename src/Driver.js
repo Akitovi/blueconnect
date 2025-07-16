@@ -4,9 +4,11 @@ import {
   Alert, RefreshControl, Dimensions
 } from 'react-native';
 import { auth, db } from '../firebase';
-import { collection, getDocs, updateDoc, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, where, addDoc, serverTimestamp,getDoc,orderBy  } from 'firebase/firestore';
 import MapView, { Marker } from 'react-native-maps';
 import LottieView from 'lottie-react-native';
+import { Linking } from 'react-native';
+import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
 
@@ -18,12 +20,32 @@ export default function DriverHome() {
 
   const fetchOrders = async () => {
     try {
-      const q = query(collection(db, 'orders'), where('status', '==', 'pending'));
+      const q = query(
+        collection(db, 'orders'),
+        where('status', '==', 'pending'),
+        orderBy('timestamp', 'desc')
+      );
       const snapshot = await getDocs(q);
-      const orderList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setOrders(orderList);
+
+      const fetchedOrders = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const orderData = docSnap.data();
+          const userRef = doc(db, 'users', orderData.uid);
+          const userSnap = await getDoc(userRef);
+          const userData = userSnap.exists() ? userSnap.data() : {};
+
+          return {
+            id: docSnap.id,
+            ...orderData,
+            name: userData.name || 'Unknown',
+            phone: userData.phone || 'N/A',
+          };
+        })
+      );
+
+      setOrders(fetchedOrders);
     } catch (e) {
-      console.error('Error loading orders', e);
+      console.error('Error loading orders:', e);
     } finally {
       setLoading(false);
     }
@@ -36,7 +58,6 @@ export default function DriverHome() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     refreshAnim.current?.play();
-
     fetchOrders().then(() => {
       setTimeout(() => {
         refreshAnim.current?.reset();
@@ -45,14 +66,40 @@ export default function DriverHome() {
     });
   }, []);
 
-  const acceptOrder = async (orderId) => {
+  const acceptOrder = async (order) => {
     try {
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to navigate.');
+        return;
+      }
+
+      const driverLocation = await Location.getCurrentPositionAsync({});
+      const origin = `${driverLocation.coords.latitude},${driverLocation.coords.longitude}`;
+      const destination = `${order.location.latitude},${order.location.longitude}`;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+
+      await updateDoc(doc(db, 'orders', order.id), {
         status: 'accepted',
         driverId: auth.currentUser?.uid || 'unknown'
       });
+
+      await addDoc(collection(db, 'notifications'), {
+        userId: order.uid,
+        message: `Your ${order.volume} order has been accepted!`,
+        timestamp: serverTimestamp(),
+        read: false,
+        role: 'customer'
+      });
+
       Alert.alert('Order Accepted', 'You have accepted this order.');
+
+      if (await Linking.canOpenURL(url)) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open Google Maps.');
+      }
+
       fetchOrders();
     } catch (error) {
       alert('Failed to accept order: ' + error.message);
@@ -61,9 +108,14 @@ export default function DriverHome() {
 
   const renderOrder = ({ item }) => (
     <View style={styles.orderCard}>
-      <Text style={styles.label}>Name: <Text style={styles.value}>{item.name || 'N/A'}</Text></Text>
-      <Text style={styles.label}>Phone: <Text style={styles.value}>{item.phone || 'N/A'}</Text></Text>
-      <Text style={styles.label}>Volume: <Text style={styles.value}>{item.volume || 'N/A'}</Text></Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.orderName}>{item.name}</Text>
+        <Text style={styles.timeText}>
+          {item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleString() : ''}
+        </Text>
+      </View>
+      <Text style={styles.detailText}>📞 {item.phone}</Text>
+      <Text style={styles.detailText}>💧 Volume: {item.volume}L</Text>
 
       {item.location?.latitude && (
         <MapView
@@ -75,14 +127,15 @@ export default function DriverHome() {
             longitudeDelta: 0.005
           }}
           scrollEnabled={false}
+          
           zoomEnabled={false}
         >
           <Marker coordinate={item.location} />
         </MapView>
       )}
 
-      <TouchableOpacity style={styles.acceptBtn} onPress={() => acceptOrder(item.id)}>
-        <Text style={styles.acceptText}>Accept</Text>
+      <TouchableOpacity style={styles.acceptBtn} onPress={() => acceptOrder(item)}>
+        <Text style={styles.acceptText}>Accept Order</Text>
       </TouchableOpacity>
     </View>
   );
@@ -103,29 +156,24 @@ export default function DriverHome() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Orders</Text>
+      <Text style={styles.heading}>Driver Dashboard</Text>
 
       {refreshing && (
-        <View style={styles.refreshAnim}>
-          <LottieView
-            ref={refreshAnim}
-            source={require('../assets/refresh.json')}
-            autoPlay
-            loop
-            resizeMode="cover"
-            style={{
-              width: width,
-              height: 10,
-              transform: [{ scale: 1 }]
-            }}
-          />
-        </View>
+        <LottieView
+          ref={refreshAnim}
+          source={require('../assets/refresh_blue_wave_clean.json')}
+          autoPlay
+          loop
+          resizeMode="cover"
+          style={styles.refreshAnim}
+        />
       )}
 
       <FlatList
         data={orders}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         renderItem={renderOrder}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -136,7 +184,9 @@ export default function DriverHome() {
             progressViewOffset={-300}
           />
         }
-        ListEmptyComponent={<Text style={{ marginTop: 20 }}>No pending orders found.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No pending orders. You're all caught up</Text>
+        }
         contentContainerStyle={{ paddingBottom: 40, paddingTop: refreshing ? 100 : 0 }}
       />
     </View>
@@ -144,32 +194,62 @@ export default function DriverHome() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f2f5', padding: 16 },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 12 },
+  container: { flex: 1, backgroundColor: '#f9fbff', padding: 16 },
+  heading: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#0d47a1',
+    textAlign: 'center',
+    marginTop: 16,
+  },
   orderCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     padding: 16,
     marginBottom: 16,
-    borderRadius: 12,
-    elevation: 3
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 4
   },
-  label: { fontWeight: 'bold', marginBottom: 4, color: '#333' },
-  value: { fontWeight: 'normal' },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6
+  },
+  orderName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333'
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#777',
+    marginTop: 4
+  },
+  detailText: {
+    fontSize: 14,
+    marginVertical: 2,
+    color: '#555'
+  },
   map: {
     height: 160,
-    marginTop: 10,
-    borderRadius: 10
+    marginTop: 12,
+    borderRadius: 12,
+    overflow: 'hidden'
   },
   acceptBtn: {
-    marginTop: 12,
-    backgroundColor: '#4caf50',
+    marginTop: 16,
+    backgroundColor: '#0d47a1',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center'
   },
   acceptText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: 'bold',
     fontSize: 16
   },
   loader: {
@@ -179,6 +259,14 @@ const styles = StyleSheet.create({
   },
   refreshAnim: {
     position: 'absolute',
+    top: 0,
     width: '100%',
+    height: 200
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#555',
+    fontSize: 15,
+    marginTop: 20
   }
 });
