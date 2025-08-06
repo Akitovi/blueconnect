@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { auth, db } from './firebase';
 
 // Screens
 import Home from './src/home';
 import Settings from './src/settings';
 import Order from './src/Order';
 import Account from './src/Account';
-import Notifications from './src/notifications';
+import Notifications from './src/notification';
 import History from './src/History';
 import CustomOrder from './src/CustomOrder';
 import DriverHome from './src/Driver';
@@ -38,6 +40,7 @@ const HistoryScreens = () => (
     <Stack.Screen name="HistoryMain" component={History} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
+
 const AccountStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="AccountMain" component={Account} options={{ headerShown: false }} />
@@ -47,6 +50,24 @@ const AccountStack = () => (
 
 export default function Tabs({ route }) {
   const role = route?.params?.role || 'customer';
+  const [hasUnread, setHasUnread] = useState(false);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', uid),
+      where('read', '==', false)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setHasUnread(!snapshot.empty);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <Tab.Navigator
@@ -65,6 +86,9 @@ export default function Tabs({ route }) {
           return (
             <View style={[styles.iconContainer, focused && styles.activeIconContainer]}>
               <Ionicons name={iconName} size={20} color={focused ? '#fff' : '#ccc'} />
+              {route.name === 'Notifications' && hasUnread && (
+                <View style={styles.redDot} />
+              )}
             </View>
           );
         },
@@ -78,7 +102,6 @@ export default function Tabs({ route }) {
         </>
       )}
       <Tab.Screen name="Account" component={AccountStack} />
-
     </Tab.Navigator>
   );
 }
@@ -106,5 +129,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     borderRadius: 25,
+  },
+  redDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    backgroundColor: 'red',
+    borderRadius: 4,
   },
 });

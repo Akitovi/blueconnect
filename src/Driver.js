@@ -1,10 +1,13 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   Alert, RefreshControl, Dimensions
 } from 'react-native';
 import { auth, db } from '../firebase';
-import { collection, getDocs, updateDoc, doc, query, where, addDoc, serverTimestamp,getDoc,orderBy  } from 'firebase/firestore';
+import {
+  collection, onSnapshot, updateDoc, doc,
+  query, where, addDoc, serverTimestamp, getDoc, orderBy
+} from 'firebase/firestore';
 import MapView, { Marker } from 'react-native-maps';
 import LottieView from 'lottie-react-native';
 import { Linking } from 'react-native';
@@ -18,16 +21,16 @@ export default function DriverHome() {
   const [loading, setLoading] = useState(true);
   const refreshAnim = useRef(null);
 
-  const fetchOrders = async () => {
-    try {
-      const q = query(
-        collection(db, 'orders'),
-        where('status', '==', 'pending'),
-        orderBy('timestamp', 'desc')
-      );
-      const snapshot = await getDocs(q);
+  // 🔁 Real-time fetch using onSnapshot
+  useEffect(() => {
+    const q = query(
+      collection(db, 'orders'),
+      where('status', '==', 'pending'),
+      orderBy('timestamp', 'desc')
+    );
 
-      const fetchedOrders = await Promise.all(
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const fetched = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const orderData = docSnap.data();
           const userRef = doc(db, 'users', orderData.uid);
@@ -42,28 +45,20 @@ export default function DriverHome() {
           };
         })
       );
-
-      setOrders(fetchedOrders);
-    } catch (e) {
-      console.error('Error loading orders:', e);
-    } finally {
+      setOrders(fetched);
       setLoading(false);
-    }
-  };
+    });
 
-  useEffect(() => {
-    fetchOrders();
+    return () => unsubscribe();
   }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     refreshAnim.current?.play();
-    fetchOrders().then(() => {
-      setTimeout(() => {
-        refreshAnim.current?.reset();
-        setRefreshing(false);
-      }, 1200);
-    });
+    setTimeout(() => {
+      refreshAnim.current?.reset();
+      setRefreshing(false);
+    }, 1200);
   }, []);
 
   const acceptOrder = async (order) => {
@@ -73,20 +68,26 @@ export default function DriverHome() {
         Alert.alert('Permission Denied', 'Location permission is required to navigate.');
         return;
       }
+      const orderRef = doc(db, 'orders', order.id);
+      const orderSnap = await getDoc(orderRef);
+      if (!orderSnap.exists() || orderSnap.data().status !== 'pending') {
+        Alert.alert('Oops', 'This order has already been accepted by another driver.');
+        return;
+      }
 
       const driverLocation = await Location.getCurrentPositionAsync({});
       const origin = `${driverLocation.coords.latitude},${driverLocation.coords.longitude}`;
       const destination = `${order.location.latitude},${order.location.longitude}`;
       const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
 
-      await updateDoc(doc(db, 'orders', order.id), {
+      await updateDoc(orderRef, {
         status: 'accepted',
         driverId: auth.currentUser?.uid || 'unknown'
       });
 
       await addDoc(collection(db, 'notifications'), {
         userId: order.uid,
-        message: `Your ${order.volume} order has been accepted!`,
+        message: `Your ${order.volume.replace(/L+$/, 'L')} order has been accepted!`,
         timestamp: serverTimestamp(),
         read: false,
         role: 'customer'
@@ -99,8 +100,6 @@ export default function DriverHome() {
       } else {
         Alert.alert('Error', 'Cannot open Google Maps.');
       }
-
-      fetchOrders();
     } catch (error) {
       alert('Failed to accept order: ' + error.message);
     }
@@ -115,7 +114,9 @@ export default function DriverHome() {
         </Text>
       </View>
       <Text style={styles.detailText}>📞 {item.phone}</Text>
-      <Text style={styles.detailText}>💧 Volume: {item.volume}L</Text>
+      <Text style={styles.detailText}>
+        💧 Volume: {item.volume.replace(/L+$/, 'L')}
+      </Text>
 
       {item.location?.latitude && (
         <MapView
@@ -127,8 +128,10 @@ export default function DriverHome() {
             longitudeDelta: 0.005
           }}
           scrollEnabled={false}
-          
           zoomEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
+          toolbarEnabled={false}
         >
           <Marker coordinate={item.location} />
         </MapView>
@@ -155,42 +158,45 @@ export default function DriverHome() {
   }
 
   return (
-    <View style={styles.container}>
+  <View style={styles.container}>
+    <View style={{ zIndex: 2 }}>
       <Text style={styles.heading}>Driver Dashboard</Text>
-
-      {refreshing && (
+    </View>
+    {refreshing && (
+      <View style={styles.refreshWrapper}>
         <LottieView
           ref={refreshAnim}
-          source={require('../assets/refresh_blue_wave_clean.json')}
+          source={require('../assets/truckrefresh.json')}
           autoPlay
           loop
-          resizeMode="cover"
+          resizeMode="contain"
           style={styles.refreshAnim}
         />
-      )}
+      </View>
+    )}
+    <FlatList
+      data={orders}
+      keyExtractor={(item) => item.id}
+      renderItem={renderOrder}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="transparent"
+          colors={['transparent']}
+          progressBackgroundColor="transparent"
+          progressViewOffset={-300}
+        />
+      }
+      ListEmptyComponent={
+        <Text style={styles.emptyText}>No pending orders. You're all caught up</Text>
+      }
+      contentContainerStyle={{ paddingBottom: 40, paddingTop: refreshing ? 60 : 0 }}
+    />
+  </View>
+);
 
-      <FlatList
-        data={orders}
-        keyExtractor={(item) => item.id}
-        renderItem={renderOrder}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="transparent"
-            colors={['transparent']}
-            progressBackgroundColor="transparent"
-            progressViewOffset={-300}
-          />
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No pending orders. You're all caught up</Text>
-        }
-        contentContainerStyle={{ paddingBottom: 40, paddingTop: refreshing ? 100 : 0 }}
-      />
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -258,11 +264,16 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   refreshAnim: {
-    position: 'absolute',
-    top: 0,
-    width: '100%',
-    height: 200
+    width: 200,
+    height: 200,
   },
+  refreshWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 80,
+    marginBottom: -50, 
+    zIndex: 1,
+},
   emptyText: {
     textAlign: 'center',
     color: '#555',
