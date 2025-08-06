@@ -1,8 +1,8 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ImageBackground, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ImageBackground, ScrollView, Linking, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { auth, db } from '../firebase';
-import { getDocs, collection, query, where } from 'firebase/firestore';
+import { getDocs, collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 
 export default class Home extends Component {
   constructor(props) {
@@ -12,11 +12,17 @@ export default class Home extends Component {
       locationGranted: null,
       location: null,
     };
+    this.unsubscribe = null;
   }
 
   async componentDidMount() {
     this.fetchUserName();
     this.askLocationPermission();
+    this.listenToNotifications();  // 👈 Real-time notification listener
+  }
+
+  componentWillUnmount() {
+    if (this.unsubscribe) this.unsubscribe(); // cleanup listener
   }
 
   fetchUserName = async () => {
@@ -48,6 +54,29 @@ export default class Home extends Component {
       this.setState({ locationGranted: false });
       console.warn("Error getting location:", err);
     }
+  };
+
+  listenToNotifications = () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+
+    this.unsubscribe = onSnapshot(q, async (snapshot) => {
+      snapshot.forEach(async (docSnap) => {
+        const data = docSnap.data();
+        Alert.alert('🔔 Notification', data.message);
+
+        // Mark as read
+        await updateDoc(doc(db, 'notifications', docSnap.id), {
+          read: true
+        });
+      });
+    });
   };
 
   render() {
@@ -140,12 +169,6 @@ const styles = StyleSheet.create({
   enableText: {
     color: '#fff',
     fontWeight: 'bold',
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 10,
-    paddingHorizontal: 10,
   },
   header: {
     flexDirection: 'row',

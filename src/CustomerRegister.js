@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity,Image} from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore'; // ✅ Updated
 
 export default function CustomerRegister({ navigation }) {
   const [form, setForm] = useState({
-    name: '', email: '', address: '', password: '', confirmPassword: '',phone:''
+    name: '', email: '', address: '', password: '', confirmPassword: '', phone: ''
   });
 
   const handleChange = (field, value) => setForm({ ...form, [field]: value });
@@ -19,12 +19,13 @@ export default function CustomerRegister({ navigation }) {
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      await addDoc(collection(db, 'users'), {
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         role: 'customer',
         ...form,
         createdAt: new Date()
       });
+
       navigation.navigate('Tabs', { role: 'customer' });
     } catch (err) {
       alert(err.message);
@@ -32,13 +33,12 @@ export default function CustomerRegister({ navigation }) {
   };
 
   return (
-    
     <View style={styles.container}>
-        <Image source={require("../assets/logo.jpg")} style={styles.logo} resizeMode="contain" />
+      <Image source={require("../assets/logo.jpg")} style={styles.logo} resizeMode="contain" />
       <Text style={styles.header}>Register as Customer</Text>
       <TextInput placeholder="Name" style={styles.input} onChangeText={(text) => handleChange('name', text)} />
-      <TextInput placeholder="Email" style={styles.input} keyboardType='email' onChangeText={(text) => handleChange('email', text)} />
-      <TextInput placeholder="Phone number" style={styles.input} keyboardType='phone-pad'maxLength={10} onChangeText={(text) => handleChange('phone', text)} />
+      <TextInput placeholder="Email" style={styles.input} keyboardType='email-address' onChangeText={(text) => handleChange('email', text)} />
+      <TextInput placeholder="Phone number" style={styles.input} keyboardType='phone-pad' maxLength={10} onChangeText={(text) => handleChange('phone', text)} />
       <TextInput placeholder="Address" style={styles.input} onChangeText={(text) => handleChange('address', text)} />
       <TextInput placeholder="Password" secureTextEntry style={styles.input} onChangeText={(text) => handleChange('password', text)} />
       <TextInput placeholder="Confirm Password" secureTextEntry style={styles.input} onChangeText={(text) => handleChange('confirmPassword', text)} />
@@ -49,6 +49,7 @@ export default function CustomerRegister({ navigation }) {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

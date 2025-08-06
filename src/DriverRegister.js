@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, ScrollView,} from 'react-native';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import LottieView from 'lottie-react-native';
 
 
@@ -22,16 +22,18 @@ const handleRegister = async () => {
     return;
   }
 
-  setLoading(true); 
+  setLoading(true);
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-    await addDoc(collection(db, 'users'), {
-      uid: userCredential.user.uid,
+    const uid = userCredential.user.uid;
+    await setDoc(doc(db, 'users', uid), {
+      uid,
       role: 'driver',
       ...form,
       createdAt: new Date()
     });
+
     navigation.navigate('Tabs', { role: 'driver' });
   } catch (err) {
     alert(err.message);
