@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "585057120917",
+    "project_id": "blueconnect-47909",
+    "storage_bucket": "blueconnect-47909.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:585057120917:android:940ffdd77543f84778e19c",
+        "android_client_info": {
+          "package_name": "com.anonymous.blueconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARt5S6CLszxzkIA5QikKMnq_x0FRn3jis"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

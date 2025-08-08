@@ -45,6 +45,7 @@ const AccountStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="AccountMain" component={Account} options={{ headerShown: false }} />
     <Stack.Screen name="Settings" component={Settings} options={{ headerShown: false }} />
+
   </Stack.Navigator>
 );
 
