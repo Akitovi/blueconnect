@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Text, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore'; // ✅ Updated
+import { doc, setDoc } from 'firebase/firestore';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 export default function CustomerRegister({ navigation }) {
   const [form, setForm] = useState({
@@ -33,29 +34,68 @@ export default function CustomerRegister({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAwareScrollView
+      style={{ flex: 1, backgroundColor: '#f5f7fa' }}
+      contentContainerStyle={styles.container}
+      enableOnAndroid={true}
+      extraScrollHeight={20} // ensures enough space for smooth scroll
+      keyboardShouldPersistTaps="handled"
+    >
       <Image source={require("../assets/logo.jpg")} style={styles.logo} resizeMode="contain" />
       <Text style={styles.header}>Register as Customer</Text>
-      <TextInput placeholder="Name" style={styles.input} onChangeText={(text) => handleChange('name', text)} />
-      <TextInput placeholder="Email" style={styles.input} keyboardType='email-address' onChangeText={(text) => handleChange('email', text)} />
-      <TextInput placeholder="Phone number" style={styles.input} keyboardType='phone-pad' maxLength={10} onChangeText={(text) => handleChange('phone', text)} />
-      <TextInput placeholder="Address" style={styles.input} onChangeText={(text) => handleChange('address', text)} />
-      <TextInput placeholder="Password" secureTextEntry style={styles.input} onChangeText={(text) => handleChange('password', text)} />
-      <TextInput placeholder="Confirm Password" secureTextEntry style={styles.input} onChangeText={(text) => handleChange('confirmPassword', text)} />
+
+      <TextInput
+        placeholder="Name"
+        placeholderTextColor="#555"
+        style={styles.input}
+        onChangeText={(text) => handleChange('name', text)}
+      />
+      <TextInput
+        placeholder="Email"
+        placeholderTextColor="#555"
+        style={styles.input}
+        keyboardType='email-address'
+        onChangeText={(text) => handleChange('email', text)}
+      />
+      <TextInput
+        placeholder="Phone number"
+        placeholderTextColor="#555"
+        style={styles.input}
+        keyboardType='phone-pad'
+        maxLength={10}
+        onChangeText={(text) => handleChange('phone', text)}
+      />
+      <TextInput
+        placeholder="Address"
+        placeholderTextColor="#555"
+        style={styles.input}
+        onChangeText={(text) => handleChange('address', text)}
+      />
+      <TextInput
+        placeholder="Password"
+        placeholderTextColor="#555"
+        secureTextEntry
+        style={styles.input}
+        onChangeText={(text) => handleChange('password', text)}
+      />
+      <TextInput
+        placeholder="Confirm Password"
+        placeholderTextColor="#555"
+        secureTextEntry
+        style={styles.input}
+        onChangeText={(text) => handleChange('confirmPassword', text)}
+      />
 
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
-    </View>
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f5f7fa',
     padding: 20,
-    paddingTop: 40,
     alignItems: 'center'
   },
   logo: {
@@ -68,21 +108,23 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 20,
-    alignSelf: 'flex-start'
+    alignSelf: 'flex-start',
+    color: '#0d65d9',
   },
   input: {
     backgroundColor: '#eee',
     padding: 12,
     borderRadius: 10,
     marginBottom: 14,
-    width: '100%'
+    width: '100%',
+    color: '#000',
   },
   button: {
     backgroundColor: '#0d65d9',
     padding: 14,
     borderRadius: 10,
     width: '100%',
-    marginTop: 10
+    marginTop: 10,
   },
   buttonText: {
     color: '#fff',

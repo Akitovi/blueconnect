@@ -4,7 +4,7 @@
     "slug": "blueconnect",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo1.jpg",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
@@ -20,11 +20,20 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.blueconnect"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cbf3c6c9-b546-4603-8742-3c8c78e79478"
+      }
     }
   }
 }
